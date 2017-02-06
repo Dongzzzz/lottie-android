@@ -4,6 +4,14 @@ class ScaleXY {
   private float scaleX = 1f;
   private float scaleY = 1f;
 
+  ScaleXY() {
+  }
+
+  ScaleXY(float scaleX, float scaleY) {
+    this.scaleX = scaleX;
+    this.scaleY = scaleY;
+  }
+
   ScaleXY scale(float sx, float sy) {
     this.scaleX = sx;
     this.scaleY = sy;

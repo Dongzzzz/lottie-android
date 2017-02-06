@@ -1,23 +1,24 @@
 package com.airbnb.lottie;
 
 import android.graphics.PointF;
+import android.util.JsonReader;
+import android.util.JsonToken;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.io.IOException;
 
 class AnimatablePointValue extends BaseAnimatableValue<PointF, PointF> {
-  AnimatablePointValue(JSONObject pointValues, int frameRate, LottieComposition composition) {
-    super(pointValues, frameRate, composition, true);
+  AnimatablePointValue(JsonReader reader, int frameRate, LottieComposition composition)
+      throws IOException {
+    super(reader, composition, true);
   }
 
-  @Override protected PointF valueFromObject(Object object, float scale) throws JSONException {
-    if (object instanceof JSONArray) {
-      return JsonUtils.pointFromJsonArray((JSONArray) object, scale);
-    } else if (object instanceof JSONObject) {
-      return JsonUtils.pointValueFromJsonObject((JSONObject) object, scale);
+  @Override public PointF valueFromObject(JsonReader reader, float scale) throws IOException {
+    JsonToken token = reader.peek();
+    if (token == JsonToken.BEGIN_ARRAY) {
+      return JsonUtils.pointFromJsonArray(reader, scale);
+    } else {
+      return JsonUtils.pointValueFromJsonObject(reader, scale);
     }
-    throw new IllegalArgumentException("Unable to parse point from " + object);
   }
 
   @Override public KeyframeAnimation<PointF> createAnimation() {
@@ -26,7 +27,7 @@ class AnimatablePointValue extends BaseAnimatableValue<PointF, PointF> {
     }
 
     KeyframeAnimation<PointF> animation =
-        new PointKeyframeAnimation(duration, composition, keyTimes, keyValues, interpolators);
+        new PointKeyframeAnimation(getDuration(), composition, keyTimes, keyValues, interpolators);
     animation.setStartDelay(delay);
     return animation;
   }

@@ -1,8 +1,8 @@
 package com.airbnb.lottie;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import android.util.JsonReader;
+
+import java.io.IOException;
 
 class AnimatableScaleValue extends BaseAnimatableValue<ScaleXY, ScaleXY> {
   AnimatableScaleValue(LottieComposition composition) {
@@ -10,23 +10,28 @@ class AnimatableScaleValue extends BaseAnimatableValue<ScaleXY, ScaleXY> {
     initialValue = new ScaleXY();
   }
 
-  AnimatableScaleValue(JSONObject scaleValues, int frameRate, LottieComposition composition,
-      boolean isDp) {
-    super(scaleValues, frameRate, composition, isDp);
+  AnimatableScaleValue(JsonReader reader, int frameRate, LottieComposition composition,
+      boolean isDp) throws IOException {
+    super(reader, composition, isDp);
   }
 
-  @Override protected ScaleXY valueFromObject(Object object, float scale) throws JSONException {
-    JSONArray array = (JSONArray) object;
-    try {
-      if (array.length() >= 2) {
-        return new ScaleXY().scale((float) array.getDouble(0) / 100f * scale,
-            (float) array.getDouble(1) / 100f * scale);
+  @Override public ScaleXY valueFromObject(JsonReader reader, float scale) throws IOException {
+    int i = 0;
+    float scaleX = 1f;
+    float scaleY = 1f;
+    reader.beginArray();
+    while (reader.hasNext()) {
+      if (i == 0) {
+        scaleX = (float) reader.nextDouble() / 100f * scale;
+      } else if (i == 1) {
+        scaleY = (float) reader.nextDouble() / 100f * scale;
+      } else {
+        reader.skipValue();
       }
-    } catch (JSONException e) {
-      // Do nothing.
+      i++;
     }
-
-    return new ScaleXY();
+    reader.endArray();
+    return new ScaleXY(scaleX, scaleY);
   }
 
   @Override public KeyframeAnimation<ScaleXY> createAnimation() {
@@ -35,7 +40,7 @@ class AnimatableScaleValue extends BaseAnimatableValue<ScaleXY, ScaleXY> {
     }
 
     ScaleKeyframeAnimation animation =
-        new ScaleKeyframeAnimation(duration, composition, keyTimes, keyValues, interpolators);
+        new ScaleKeyframeAnimation(getDuration(), composition, keyTimes, keyValues, interpolators);
     animation.setStartDelay(delay);
     return animation;
   }

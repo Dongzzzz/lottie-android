@@ -19,7 +19,7 @@ class ShapeFill {
       // Do nothing.
     }
     if (jsonColor != null) {
-      color = new AnimatableColorValue(jsonColor, frameRate, composition);
+      color = new AnimatableColorValue(jsonColor, composition);
     }
 
     JSONObject jsonOpacity = null;

@@ -32,10 +32,10 @@ class ShapeStroke {
   ShapeStroke(JSONObject json, int frameRate, LottieComposition composition) {
     try {
       JSONObject colorJson = json.getJSONObject("c");
-      color = new AnimatableColorValue(colorJson, frameRate, composition);
+      color = new AnimatableColorValue(colorJson, composition);
 
       JSONObject widthJson = json.getJSONObject("w");
-      width = new AnimatableFloatValue(widthJson, frameRate, composition);
+      width = new AnimatableFloatValue(widthJson, composition);
 
       JSONObject opacityJson = json.getJSONObject("o");
       opacity = new AnimatableIntegerValue(opacityJson, frameRate, composition, false, true);
@@ -50,10 +50,10 @@ class ShapeStroke {
           String n = dashJson.getString("n");
           if (n.equals("o")) {
             JSONObject value = dashJson.getJSONObject("v");
-            offset = new AnimatableFloatValue(value, frameRate, composition);
+            offset = new AnimatableFloatValue(value, composition);
           } else if (n.equals("d") || n.equals("g")) {
             JSONObject value = dashJson.getJSONObject("v");
-            lineDashPattern.add(new AnimatableFloatValue(value, frameRate, composition));
+            lineDashPattern.add(new AnimatableFloatValue(value, composition));
           }
         }
         if (lineDashPattern.size() == 1) {

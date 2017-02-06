@@ -10,9 +10,9 @@ class ShapeTrimPath {
 
   ShapeTrimPath(JSONObject json, int frameRate, LottieComposition composition) {
     try {
-      start = new AnimatableFloatValue(json.getJSONObject("s"), frameRate, composition, false);
-      end = new AnimatableFloatValue(json.getJSONObject("e"), frameRate, composition, false);
-      offset = new AnimatableFloatValue(json.getJSONObject("o"), frameRate, composition, false);
+      start = new AnimatableFloatValue(json.getJSONObject("s"), composition, false);
+      end = new AnimatableFloatValue(json.getJSONObject("e"), composition, false);
+      offset = new AnimatableFloatValue(json.getJSONObject("o"), composition, false);
     } catch (JSONException e) {
       throw new IllegalArgumentException("Unable to parse trim path " + json, e);
     }

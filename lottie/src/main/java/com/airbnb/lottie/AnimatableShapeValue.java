@@ -2,77 +2,98 @@ package com.airbnb.lottie;
 
 import android.graphics.Path;
 import android.graphics.PointF;
+import android.util.JsonReader;
+import android.util.JsonToken;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 class AnimatableShapeValue extends BaseAnimatableValue<ShapeData, Path> {
   private final Path convertTypePath = new Path();
   private boolean closed;
 
-  AnimatableShapeValue(JSONObject json, int frameRate, LottieComposition composition,
-      boolean closed) {
-    super(null, frameRate, composition, true);
+  AnimatableShapeValue(JsonReader reader, int frameRate, LottieComposition composition,
+      boolean closed) throws IOException {
+    super(null, composition, true);
     this.closed = closed;
-    init(json);
+    init(reader);
   }
 
-  @Override protected ShapeData valueFromObject(Object object, float scale) throws JSONException {
-    JSONObject pointsData = null;
-    if (object instanceof JSONArray) {
-      try {
-        Object firstObject = ((JSONArray) object).get(0);
-        if (firstObject instanceof JSONObject && ((JSONObject) firstObject).has("v")) {
-          pointsData = (JSONObject) firstObject;
+  @Override public ShapeData valueFromObject(JsonReader reader, float scale) throws IOException {
+    JsonToken token = reader.peek();
+
+    ShapeData shapeData = null;
+    if (token == JsonToken.BEGIN_ARRAY) {
+      int i = 0;
+      reader.beginArray();
+      while (reader.hasNext()) {
+        if (i > 0) {
+          reader.skipValue();
+          continue;
         }
-      } catch (JSONException e) {
-        throw new IllegalStateException("Unable to get shape. " + object);
+        shapeData = parsePointsData(reader, scale);
+        i++;
       }
-    } else if (object instanceof JSONObject && ((JSONObject) object).has("v")) {
-      pointsData = (JSONObject) object;
+      reader.endArray();
+    } else if (token == JsonToken.BEGIN_OBJECT) {
+      shapeData = parsePointsData(reader, scale);
     }
 
-    if (pointsData == null) {
-      return null;
+    if (shapeData == null) {
+      throw new IllegalStateException("Unable to get shape with token " + token);
     }
+    return shapeData;
+  }
 
-    JSONArray pointsArray = null;
-    JSONArray inTangents = null;
-    JSONArray outTangents = null;
-    try {
-      pointsArray = pointsData.getJSONArray("v");
-      inTangents = pointsData.getJSONArray("i");
-      outTangents = pointsData.getJSONArray("o");
-
-      if (pointsData.has("c")) {
-        // Bodymovin < 4.4 uses "closed" one level up in the json so it is passed in to the
-        // constructor.
-        // Bodymovin 4.4+ has closed here.
-        closed = pointsData.getBoolean("c");
+  private ShapeData parsePointsData(JsonReader reader, float scale) throws IOException {
+    List<PointF> vertices = null;
+    List<PointF> inTangents = null;
+    List<PointF> outTangents = null;
+    while (reader.hasNext()) {
+      switch (reader.nextName()) {
+        case "v":
+          vertices = parsePointsArray(reader);
+          break;
+        case "i":
+          inTangents = parsePointsArray(reader);
+          break;
+        case "o":
+          outTangents = parsePointsArray(reader);
+          break;
+        case "c":
+          // Bodymovin < 4.4 uses "closed" one level up in the json so it is passed in to the
+          // constructor.
+          // Bodymovin 4.4+ has closed here.
+          closed = true;
+          break;
+        default:
+          reader.skipValue();
       }
-    } catch (JSONException e) {
-      // Do nothing.
     }
 
-    if (pointsArray == null || inTangents == null || outTangents == null ||
-        pointsArray.length() != inTangents.length() ||
-        pointsArray.length() != outTangents.length()) {
-      throw new IllegalStateException("Unable to process points array or tangents. " + pointsData);
+    if (vertices == null) {
+      throw new IllegalArgumentException("Unable to find vertices.");
+    }
+    if (inTangents == null) {
+      throw new IllegalArgumentException("Unable to find inTangents.");
+    }
+    if (outTangents == null) {
+      throw new IllegalArgumentException("Unable to find outTangents.");
     }
 
     ShapeData shape = new ShapeData();
 
-    PointF vertex = vertexAtIndex(0, pointsArray);
+    PointF vertex = vertices.get(0);
     vertex.x *= scale;
     vertex.y *= scale;
     shape.setInitialPoint(vertex);
 
-    for (int i = 1; i < pointsArray.length(); i++) {
-      vertex = vertexAtIndex(i, pointsArray);
-      PointF previousVertex = vertexAtIndex(i - 1, pointsArray);
-      PointF cp1 = vertexAtIndex(i - 1, outTangents);
-      PointF cp2 = vertexAtIndex(i, inTangents);
+    for (int i = 1; i < vertices.size(); i++) {
+      vertex = vertices.get(i);
+      PointF previousVertex = vertices.get(i - 1);
+      PointF cp1 = outTangents.get(i - 1);
+      PointF cp2 = inTangents.get(i);
 
       PointF shapeCp1 = MiscUtils.addPoints(previousVertex, cp1);
       PointF shapeCp2 = MiscUtils.addPoints(vertex, cp2);
@@ -88,10 +109,10 @@ class AnimatableShapeValue extends BaseAnimatableValue<ShapeData, Path> {
     }
 
     if (closed) {
-      vertex = vertexAtIndex(0, pointsArray);
-      PointF previousVertex = vertexAtIndex(pointsArray.length() - 1, pointsArray);
-      PointF cp1 = vertexAtIndex(pointsArray.length() - 1, outTangents);
-      PointF cp2 = vertexAtIndex(0, inTangents);
+      vertex = vertices.get(0);
+      PointF previousVertex = vertices.get(vertices.size() - 1);
+      PointF cp1 = outTangents.get(outTangents.size() - 1);
+      PointF cp2 = inTangents.get(0);
 
       PointF shapeCp1 = MiscUtils.addPoints(previousVertex, cp1);
       PointF shapeCp2 = MiscUtils.addPoints(vertex, cp2);
@@ -108,25 +129,35 @@ class AnimatableShapeValue extends BaseAnimatableValue<ShapeData, Path> {
       shape.addCurve(new CubicCurveData(shapeCp1, shapeCp2, vertex));
     }
     return shape;
-
   }
 
-  private PointF vertexAtIndex(int idx, JSONArray points) {
-    if (idx >= points.length()) {
-      throw new IllegalArgumentException(
-          "Invalid index " + idx + ". There are only " + points.length() + " points.");
+  private List<PointF> parsePointsArray(JsonReader reader) throws IOException {
+    reader.beginArray();
+    List<PointF> points = new ArrayList<>();
+    while (reader.hasNext()) {
+      points.add(parsePoint(reader));
     }
+    reader.endArray();
+    return points;
+  }
 
-    try {
-      JSONArray pointArray = points.getJSONArray(idx);
-      Object x = pointArray.get(0);
-      Object y = pointArray.get(1);
-      return new PointF(
-          x instanceof Double ? new Float((Double) x) : (int) x,
-          y instanceof Double ? new Float((Double) y) : (int) y);
-    } catch (JSONException e) {
-      throw new IllegalArgumentException("Unable to get point.", e);
+  private PointF parsePoint(JsonReader reader) throws IOException {
+    reader.beginArray();
+    int i = 0;
+    float x = 0;
+    float y = 0;
+    while (reader.hasNext()) {
+      if (i == 0) {
+        x = (float) reader.nextDouble();
+      } else if (i == 1) {
+        y = (float) reader.nextDouble();
+      } else {
+        reader.skipValue();
+      }
+      i++;
     }
+    reader.endArray();
+    return new PointF(x, y);
   }
 
   @Override public KeyframeAnimation<Path> createAnimation() {
@@ -135,7 +166,7 @@ class AnimatableShapeValue extends BaseAnimatableValue<ShapeData, Path> {
     }
 
     ShapeKeyframeAnimation animation =
-        new ShapeKeyframeAnimation(duration, composition, keyTimes, keyValues, interpolators);
+        new ShapeKeyframeAnimation(getDuration(), composition, keyTimes, keyValues, interpolators);
     animation.setStartDelay(delay);
     return animation;
   }

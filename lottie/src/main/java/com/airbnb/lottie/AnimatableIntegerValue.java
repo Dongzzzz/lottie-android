@@ -1,8 +1,9 @@
 package com.airbnb.lottie;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import android.util.JsonReader;
+import android.util.JsonToken;
+
+import java.io.IOException;
 
 class AnimatableIntegerValue extends BaseAnimatableValue<Integer, Integer> {
   AnimatableIntegerValue(LottieComposition composition, Integer initialValue) {
@@ -10,9 +11,9 @@ class AnimatableIntegerValue extends BaseAnimatableValue<Integer, Integer> {
     this.initialValue = initialValue;
   }
 
-  AnimatableIntegerValue(JSONObject json, int frameRate, LottieComposition composition,
-      boolean isDp, boolean remap100To255) {
-    super(json, frameRate, composition, isDp);
+  AnimatableIntegerValue(JsonReader reader, int frameRate, LottieComposition composition,
+      boolean isDp, boolean remap100To255) throws IOException {
+    super(reader, composition, isDp);
     if (remap100To255) {
       initialValue = initialValue * 255 / 100;
       for (int i = 0; i < keyValues.size(); i++) {
@@ -21,13 +22,25 @@ class AnimatableIntegerValue extends BaseAnimatableValue<Integer, Integer> {
     }
   }
 
-  @Override protected Integer valueFromObject(Object object, float scale) throws JSONException {
-    if (object instanceof Integer) {
-      return Math.round((Integer) object * scale);
-    } else if (object instanceof JSONArray && ((JSONArray) object).get(0) instanceof Integer) {
-      return Math.round(((JSONArray) object).getInt(0) * scale);
+  @Override public Integer valueFromObject(JsonReader reader, float scale) throws IOException {
+    JsonToken token = reader.peek();
+
+    if (token == JsonToken.BEGIN_ARRAY) {
+      reader.beginArray();
+      Integer value = null;
+      while (reader.hasNext()) {
+        if (value == null) {
+          value = Math.round((float) (reader.nextDouble() * scale));
+        } else {
+          reader.skipValue();
+        }
+      }
+      reader.endArray();
+    } else if (token == JsonToken.NUMBER){
+      return Math.round((float) (reader.nextDouble() * scale));
     }
-    return null;
+
+    throw new IllegalArgumentException("Can't parse " + token + " into an integer.");
   }
 
   @Override public KeyframeAnimation<Integer> createAnimation() {
@@ -36,7 +49,7 @@ class AnimatableIntegerValue extends BaseAnimatableValue<Integer, Integer> {
     }
 
     KeyframeAnimation<Integer> animation =
-        new NumberKeyframeAnimation<>(duration, composition, keyTimes, Integer.class, keyValues,
+        new NumberKeyframeAnimation<>(getDuration(), composition, keyTimes, Integer.class, keyValues,
             interpolators);
     animation.setStartDelay(delay);
     return animation;

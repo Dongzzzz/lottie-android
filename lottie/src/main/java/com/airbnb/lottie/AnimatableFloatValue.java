@@ -1,8 +1,9 @@
 package com.airbnb.lottie;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import android.util.JsonReader;
+import android.util.JsonToken;
+
+import java.io.IOException;
 
 class AnimatableFloatValue extends BaseAnimatableValue<Float, Float> {
   AnimatableFloatValue(LottieComposition composition, Float initialValue) {
@@ -10,38 +11,44 @@ class AnimatableFloatValue extends BaseAnimatableValue<Float, Float> {
     this.initialValue = initialValue;
   }
 
-  AnimatableFloatValue(JSONObject json, int frameRate, LottieComposition composition) {
-    this(json, frameRate, composition, true);
+  AnimatableFloatValue(JsonReader reader, LottieComposition composition)
+      throws IOException{
+    this(reader, composition, true);
   }
 
-  AnimatableFloatValue(JSONObject json, int frameRate, LottieComposition composition,
-      boolean isDp) {
-    super(json, frameRate, composition, isDp);
+  AnimatableFloatValue(JsonReader reader, LottieComposition composition,
+      boolean isDp) throws IOException {
+    super(reader, composition, isDp);
   }
 
-  @Override
-  protected Float valueFromObject(Object object, float scale) throws JSONException {
-    if (object instanceof JSONArray) {
-      object = ((JSONArray) object).get(0);
+  @Override public Float valueFromObject(JsonReader reader, float scale) throws IOException {
+    JsonToken token = reader.peek();
+
+    if (token == JsonToken.BEGIN_ARRAY) {
+      reader.beginArray();
+      Float value = null;
+      while (reader.hasNext()) {
+        if (value == null) {
+          value = (float) reader.nextDouble() * scale;
+        } else {
+          reader.skipValue();
+        }
+      }
+      reader.endArray();
+    } else if (token == JsonToken.NUMBER){
+      return (float) reader.nextDouble() * scale;
     }
-    if (object instanceof Float) {
-      return (Float) object * scale;
-    } else if (object instanceof Double) {
-      return (float) ((Double) object * scale);
-    } else if (object instanceof Integer) {
-      return (Integer) object * scale;
-    }
-    return null;
+
+    throw new IllegalArgumentException("Can't parse " + token + " into a float.");
   }
 
-  @Override
-  public KeyframeAnimation<Float> createAnimation() {
+  @Override public KeyframeAnimation<Float> createAnimation() {
     if (!hasAnimation()) {
       return new StaticKeyframeAnimation<>(initialValue);
     }
 
     KeyframeAnimation<Float> animation =
-        new NumberKeyframeAnimation<>(duration, composition, keyTimes, Float.class, keyValues,
+        new NumberKeyframeAnimation<>(getDuration(), composition, keyTimes, Float.class, keyValues,
             interpolators);
     animation.setStartDelay(delay);
     return animation;

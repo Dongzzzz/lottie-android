@@ -5,14 +5,17 @@ import android.content.res.Resources;
 import android.graphics.Rect;
 import android.os.AsyncTask;
 import android.support.annotation.VisibleForTesting;
+import android.util.JsonReader;
 import android.util.LongSparseArray;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,34 +94,43 @@ public class LottieComposition {
   @SuppressWarnings("WeakerAccess")
   static LottieComposition fromInputStream(Resources res, InputStream file) {
     try {
-      int size = file.available();
-      byte[] buffer = new byte[size];
-      //noinspection ResultOfMethodCallIgnored
-      file.read(buffer);
-      file.close();
-      String json = new String(buffer, "UTF-8");
-
-      JSONObject jsonObject = new JSONObject(json);
-      return LottieComposition.fromJsonSync(res, jsonObject);
+      return LottieComposition.fromJsonSync(res, new JsonReader(new InputStreamReader(file)));
     } catch (IOException e) {
-      throw new IllegalStateException("Unable to find file.", e);
-    } catch (JSONException e) {
-      throw new IllegalStateException("Unable to load JSON.", e);
+      throw new IllegalStateException("Unable to parse json.", e);
     }
   }
 
   @SuppressWarnings("WeakerAccess")
-  static LottieComposition fromJsonSync(Resources res, JSONObject json) {
+  static LottieComposition fromJsonSync(Resources res, JsonReader reader) throws IOException {
     LottieComposition composition = new LottieComposition(res);
 
     int width = -1;
     int height = -1;
-    try {
-      width = json.getInt("w");
-      height = json.getInt("h");
-    } catch (JSONException e) {
-      // ignore.
+    while (reader.hasNext()) {
+      switch (reader.nextName()) {
+        case "w":
+          width = reader.nextInt();
+          break;
+        case "h":
+          height = reader.nextInt();
+          break;
+        case "ip":
+          composition.startFrame = reader.nextLong();
+          break;
+        case "op":
+          composition.endFrame = reader.nextLong();
+          break;
+        case "fr":
+          composition.frameRate = reader.nextInt();
+          break;
+        case "layers":
+          // TODO (jsonreader)
+          break;
+        default:
+          reader.skipValue();
+      }
     }
+
     if (width != -1 && height != -1) {
       int scaledWidth = (int) (width * composition.scale);
       int scaledHeight = (int) (height * composition.scale);
@@ -129,14 +141,6 @@ public class LottieComposition {
         composition.scale *= factor;
       }
       composition.bounds = new Rect(0, 0, scaledWidth, scaledHeight);
-    }
-
-    try {
-      composition.startFrame = json.getLong("ip");
-      composition.endFrame = json.getLong("op");
-      composition.frameRate = json.getInt("fr");
-    } catch (JSONException e) {
-      //
     }
 
     if (composition.endFrame != 0 && composition.frameRate != 0) {

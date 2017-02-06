@@ -1,24 +1,37 @@
 package com.airbnb.lottie;
 
 import android.graphics.PointF;
+import android.util.JsonReader;
 
 import org.json.JSONException;
-import org.json.JSONObject;
+
+import java.io.IOException;
 
 class AnimatableSplitDimensionPathValue implements IAnimatablePathValue {
   private final PointF point = new PointF();
 
-  private final AnimatableFloatValue animatableXDimension;
-  private final AnimatableFloatValue animatableYDimension;
+  private AnimatableFloatValue animatableXDimension;
+  private AnimatableFloatValue animatableYDimension;
 
-  AnimatableSplitDimensionPathValue(JSONObject pointValue, LottieComposition composition) {
-    try {
-      animatableXDimension = new AnimatableFloatValue(pointValue.getJSONObject("x"),
-          composition.getFrameRate(), composition);
-      animatableYDimension = new AnimatableFloatValue(pointValue.getJSONObject("y"),
-          composition.getFrameRate(), composition);
-    } catch (JSONException e) {
-      throw new IllegalArgumentException("Unable to parse split dimension path.");
+  AnimatableSplitDimensionPathValue(JsonReader reader, LottieComposition composition)
+      throws IOException {
+    reader.beginObject();
+    while (reader.hasNext()) {
+      switch (reader.nextName()) {
+        case "x":
+          animatableXDimension = new AnimatableFloatValue(reader, composition);
+          break;
+        case "y":
+          animatableYDimension = new AnimatableFloatValue(reader, composition);
+          break;
+        default:
+          reader.skipValue();
+      }
+    }
+    reader.endObject();
+
+    if (animatableXDimension == null || animatableYDimension == null) {
+      throw new IllegalArgumentException("Unable to parse split dimension values.");
     }
   }
 

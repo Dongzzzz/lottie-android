@@ -1,6 +1,5 @@
 package com.airbnb.lottie;
 
-import android.graphics.PointF;
 import android.util.Log;
 
 import org.json.JSONException;
@@ -23,7 +22,7 @@ class RectangleShape {
 
     try {
       JSONObject cornerRadiusJson = json.getJSONObject("r");
-      cornerRadius = new AnimatableFloatValue(cornerRadiusJson, frameRate, composition);
+      cornerRadius = new AnimatableFloatValue(cornerRadiusJson, composition);
     } catch (JSONException e) {
       throw new IllegalArgumentException("Unable to parse rectangle corner radius.", e);
     }

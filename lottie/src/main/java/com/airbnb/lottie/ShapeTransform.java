@@ -58,7 +58,7 @@ class ShapeTransform implements Transform {
     } catch (JSONException e) {
       throw new IllegalStateException("Transform has no rotation.");
     }
-    rotation = new AnimatableFloatValue(jsonRotation, frameRate, composition, false);
+    rotation = new AnimatableFloatValue(jsonRotation, composition, false);
 
     JSONObject jsonOpacity;
     try {
