@@ -1,23 +1,47 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+import org.ajoberstar.grgit.Grgit
 
 buildscript {
-    repositories {
-        jcenter()
+  ext.kotlinVersion = '1.3.61'
+
+  repositories {
+    jcenter()
+    google()
+    maven {
+      url "https://plugins.gradle.org/m2/"
     }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.0-beta3'
-        classpath 'com.facebook.testing.screenshot:plugin:0.4.2'
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
-    }
+  }
+  dependencies {
+    classpath 'org.ajoberstar:grgit:1.9.3'
+    classpath 'com.android.tools.build:gradle:3.5.3'
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    classpath "org.jetbrains.kotlin:kotlin-android-extensions:$kotlinVersion"
+    classpath 'org.ajoberstar:grgit:1.9.3'
+    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.6"
+  }
 }
 
 allprojects {
-    repositories {
-        jcenter()
+  repositories {
+    google()
+    jcenter()
+    maven {
+      url "https://jitpack.io"
     }
+    maven {
+      url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+    flatDir {
+      dirs 'libs'
+    }
+  }
+}
+
+ext {
+  git = Grgit.open()
+  gitSha = git.head().id
+  gitBranch = git.branch.getCurrent().name
 }
 
 task clean(type: Delete) {
-    delete rootProject.buildDir
+  delete rootProject.buildDir
 }
